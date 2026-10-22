@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Philly Bird Hotspots</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+:root{--bg:#f6f4ee;--panel:#fff;--ink:#1f2a24;--muted:#64706a;--line:#e3dfd4;--accent:#2f6b4f}
+@media (prefers-color-scheme:dark){:root{--bg:#141815;--panel:#1d221e;--ink:#e8ece9;--muted:#9aa59f;--line:#2e352f;--accent:#7cc39e}}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
+#app{display:flex;height:100vh}
+#side{width:340px;display:flex;flex-direction:column;background:var(--panel);border-right:1px solid var(--line)}
+header{padding:16px}h1{margin:0 0 4px;font-size:20px}header p{margin:0;color:var(--muted);font-size:13px}
+.filters{padding:0 16px 12px;display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:999px;padding:4px 10px;cursor:pointer;font-size:12px}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.label{width:100%;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-top:6px}
+#list{overflow:auto;flex:1;border-top:1px solid var(--line)}
+.item{padding:10px 16px;border-bottom:1px solid var(--line);cursor:pointer}.item:hover{background:var(--bg)}
+.item b{display:block}.item small{color:var(--muted)}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
+#map{flex:1}
+.legend{background:var(--panel);color:var(--ink);padding:8px 10px;border-radius:8px;font-size:12px;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+.leaflet-popup-content{font-size:13px}.leaflet-popup-content h3{margin:0 0 4px;font-size:15px}
+.stars{color:#c9932b}
+@media (max-width:760px){#app{flex-direction:column-reverse}#side{width:100%;height:45vh;border-right:0;border-top:1px solid var(--line)}#map{height:55vh}}
+</style></head><body>
+<div id="app">
+ <aside id="side">
+  <header><h1>Philly Bird Hotspots</h1><p><span id="count"></span> spots · tap one to fly there</p></header>
+  <div class="filters" id="seasons"><div class="label">Best season</div></div>
+  <div class="filters" id="habitats"><div class="label">Habitat</div></div>
+  <div id="list"></div>
+ </aside>
+ <div id="map"></div>
+</div>
+<script>
+const DATA = {"type": "FeatureCollection", "name": "Philadelphia Birding Hotspots", "note": "Coordinates are approximate (parking / main entrance area). Verify on eBird before visiting.", "features": [{"type": "Feature", "geometry": {"type": "Point", "coordinates": [-75.2565, 39.8925]}, "properties": {"name": "John Heinz NWR at Tinicum", "area": "Southwest", "habitat": "Wetland", "best": ["Spring", "Fall", "Winter"], "tier": 1, "birds": "Waterfowl, herons & egrets, shorebirds, bald eagle, marsh wren, least bittern", "tip": "Walk the impoundment loop from the visitor center; low tide on the Darby Creek side brings shorebirds."}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-75.2125, 39.9325]}, "properties": {"name": "Bartram's Garden", "area": "Southwest", "habitat": "Riverfront", "best": ["Spring", "Fall"], "tier": 1, "birds": "300+ species recorded: warblers, wood ducks, herons, bald eagles on the Schuylkill", "tip": "Check the tidal marsh and river overlook; one of the city's first post-DDT eagle nests was here."}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-75.056, 40.079]}, "properties": {"name": "Pennypack Park \u2013 North / Environmental Center", "area": "Northeast", "habitat": "Woodland", "best": ["Spring", "Fall"], "tier": 1, "birds": "Warblers, vireos, thrushes, belted kingfisher, woodpeckers", "tip": "Start at the Environmental Center on Verree Rd; the feeders and creek trail are reliable."}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-75.018, 40.033]}, "properties": {"name": "Pennypack on the Delaware", "area": "Northeast", "habitat": "Riverfront", "best": ["Fall", "Winter", "Spring"], "tier": 2, "birds": "Gulls, cormorants, osprey, ducks on the river, meadow sparrows", "tip": "Scan the river from the trail; the meadows are good for sparrows in fall."}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-75.223, 40.091]}, "properties": {"name": "Morris Arboretum", "area": "Northwest", "habitat": "Garden", "best": ["Spring", "Fall"], "tier": 1, "birds": "Migrant songbirds, raptors, Wissahickon Creek species", "tip": "Admission required. The wetland and meadow sections are the birdiest."}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-75.195, 40.047]}, "properties": {"name": "Carpenter's Woods", "area": "Northwest", "habitat": "Woodland", "best": ["Spring"], "tier": 1, "birds": "Classic spring warbler trap: 30+ warbler species possible in May", "tip": "Go early on May mornings after a south wind; listen near the Sparrow Rd entrance."}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-75.218, 40.055]}, "properties": {"name": "Wissahickon Valley Park (Valley Green)", "area": "Northwest", "habitat": "Woodland", "best": ["Spring", "Fall", "Winter"], "tier": 1, "birds": "Woodpeckers, thrushes, warblers, kingfisher, wintering ducks on the creek", "tip": "Forbidden Drive from Valley Green to Kitchens Ln is the most-birded stretch."}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-75.228, 40.074]}, "properties": {"name": "Andorra Natural Area & Meadow", "area": "Northwest", "habitat": "Meadow", "best": ["Spring", "Fall"], "tier": 2, "birds": "Field sparrows, indigo bunting, bluebirds, migrant warblers", "tip": "Pair the meadow with the woods around the Tree House environmental center."}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-75.244, 40.056]}, "properties": {"name": "Schuylkill Center for Environmental Education", "area": "Northwest", "habitat": "Woodland", "best": ["Spring", "Fall"], "tier": 2, "birds": "Forest songbirds, raptors, owls", "tip": "Free trails; the pond and fields edge are productive."}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-75.217, 40.059]}, "properties": {"name": "Houston Meadow", "area": "Northwest", "habitat": "Meadow", "best": ["Fall", "Spring"], "tier": 2, "birds": "Sparrows, bluebirds, swallows, raptors overhead", "tip": "Restored meadow off Forbidden Drive \u2014 great for fall sparrows."}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-75.183, 39.903]}, "properties": {"name": "FDR Park", "area": "South", "habitat": "Wetland", "best": ["Spring", "Fall", "Winter"], "tier": 1, "birds": "Herons, egrets, waterfowl, migrant songbirds, gulls", "tip": "Check the lakes and the wooded edges near the Meadow Lake boathouse."}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-75.202, 39.948]}, "properties": {"name": "The Woodlands (cemetery)", "area": "West", "habitat": "Garden", "best": ["Spring", "Fall"], "tier": 2, "birds": "Migrant warblers, thrushes, kinglets, hawks", "tip": "An urban migrant trap minutes from Drexel's campus."}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-75.188, 40.003]}, "properties": {"name": "Laurel Hill Cemetery", "area": "North", "habitat": "Garden", "best": ["Spring", "Fall"], "tier": 3, "birds": "Migrant songbirds, raptors along the Schuylkill", "tip": "Mature trees on the bluff draw migrants; check gate hours."}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-75.107, 40.035]}, "properties": {"name": "Tacony Creek Park", "area": "North", "habitat": "Woodland", "best": ["Spring", "Fall"], "tier": 2, "birds": "Creek-side songbirds, herons, kingfisher, woodpeckers", "tip": "Follow the trail along the creek; less crowded than Wissahickon."}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-74.986, 40.048]}, "properties": {"name": "Glen Foerd on the Delaware", "area": "Northeast", "habitat": "Riverfront", "best": ["Fall", "Winter", "Spring"], "tier": 2, "birds": "River ducks, bald eagle, gulls, migrant songbirds", "tip": "Scan the confluence of the Poquessing and the Delaware."}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-75.213, 39.875]}, "properties": {"name": "Fort Mifflin", "area": "Southwest", "habitat": "Wetland", "best": ["Spring", "Fall"], "tier": 3, "birds": "Marsh birds, shorebirds, raptors near the river", "tip": "Admission for the fort; the surrounding marsh edges are the draw."}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-75.242, 39.945]}, "properties": {"name": "Cobbs Creek Park", "area": "West", "habitat": "Woodland", "best": ["Spring", "Fall"], "tier": 3, "birds": "Woodland songbirds, hawks, creek species", "tip": "851 acres in West Philly; the environmental center area is a good start."}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-75.229, 40.024]}, "properties": {"name": "Manayunk Canal Towpath", "area": "Northwest", "habitat": "Riverfront", "best": ["Spring", "Fall", "Winter"], "tier": 3, "birds": "Waterbirds, kingfisher, swallows, migrant songbirds", "tip": "Flat, easy walk between the canal and the Schuylkill."}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-75.183, 39.953]}, "properties": {"name": "Schuylkill River Park / Trail", "area": "Center City", "habitat": "Riverfront", "best": ["Spring", "Fall"], "tier": 3, "birds": "Migrants passing along the river, cormorants, gulls", "tip": "An underrated Center City migrant spot \u2014 easiest to reach without a car."}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-75.166, 40.048]}, "properties": {"name": "Awbury Arboretum", "area": "Northwest", "habitat": "Garden", "best": ["Spring", "Fall"], "tier": 3, "birds": "~126 species: woodpeckers, sparrows, geese, occasional owls", "tip": "Free and open daily in Germantown."}}]};
+const COLORS={Wetland:"#2b7bb9",Woodland:"#2f8a4f",Riverfront:"#17a2a2",Meadow:"#d4a017",Garden:"#b05aa8"};
+const SEASONS=["Spring","Fall","Winter"];
+let season=null, habitat=null;
+const map=L.map("map").setView([39.99,-75.15],11);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap contributors"}).addTo(map);
+const layer=L.layerGroup().addTo(map);
+function stars(t){return "★".repeat(4-t)+"☆".repeat(t-1)}
+function popup(p,ll){return `<h3>${p.name}</h3><div><span class="stars">${stars(p.tier)}</span> · ${p.habitat} · ${p.area}</div>
+<p><b>Look for:</b> ${p.birds}</p><p><b>Tip:</b> ${p.tip}</p><p><b>Best:</b> ${p.best.join(", ")}</p>
+<a target="_blank" href="https://www.google.com/maps/dir/?api=1&destination=${ll[1]},${ll[0]}">Directions</a> ·
+<a target="_blank" href="https://ebird.org/region/US-PA-101/hotspots">eBird sightings</a>`}
+function chips(id,vals,get,set){const el=document.getElementById(id);vals.forEach(v=>{const b=document.createElement("button");b.className="chip";b.textContent=v;
+ if(COLORS[v])b.innerHTML=`<span class="dot" style="background:${COLORS[v]}"></span>${v}`;
+ b.onclick=()=>{set(get()===v?null:v);[...el.querySelectorAll(".chip")].forEach(c=>c.classList.toggle("on",c.textContent===get()));render()};el.appendChild(b)})}
+chips("seasons",SEASONS,()=>season,v=>season=v);
+chips("habitats",Object.keys(COLORS),()=>habitat,v=>habitat=v);
+function render(){layer.clearLayers();const list=document.getElementById("list");list.innerHTML="";
+ const feats=DATA.features.filter(f=>(!season||f.properties.best.includes(season))&&(!habitat||f.properties.habitat===habitat)).sort((a,b)=>a.properties.tier-b.properties.tier);
+ document.getElementById("count").textContent=feats.length;
+ feats.forEach(f=>{const p=f.properties,c=f.geometry.coordinates;
+  const m=L.circleMarker([c[1],c[0]],{radius:13-p.tier*2,color:"#fff",weight:2,fillColor:COLORS[p.habitat],fillOpacity:.9}).bindPopup(popup(p,c)).addTo(layer);
+  const d=document.createElement("div");d.className="item";
+  d.innerHTML=`<b><span class="dot" style="background:${COLORS[p.habitat]}"></span>${p.name}</b><small><span class="stars">${stars(p.tier)}</span> · ${p.area} · ${p.best.join("/")}</small>`;
+  d.onclick=()=>{map.flyTo([c[1],c[0]],15);m.openPopup()};list.appendChild(d)})}
+const lg=L.control({position:"bottomright"});lg.onAdd=()=>{const d=L.DomUtil.create("div","legend");
+ d.innerHTML=Object.entries(COLORS).map(([k,v])=>`<div><span class="dot" style="background:${v}"></span>${k}</div>`).join("")+"<div style='margin-top:4px'>Bigger dot = more popular</div>";return d};lg.addTo(map);
+render();
+</script></body></html>
